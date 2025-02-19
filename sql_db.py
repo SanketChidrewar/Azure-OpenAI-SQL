@@ -1,17 +1,14 @@
-# sql_db.py
-
 import sqlite3
 from sqlite3 import Error
 import random
 from datetime import date, timedelta
-from tqdm import tqdm
 import pandas as pd
 
 DATABASE_NAME = "mydatabase.db"
 
 def create_connection():
     """ Create or connect to an SQLite database """
-    conn = None;
+    conn = None
     try:
         conn = sqlite3.connect(DATABASE_NAME)
     except Error as e:
@@ -27,7 +24,7 @@ def create_table(conn, create_table_sql):
         print(e)
 
 def insert_data(conn, table_name, data_dict):
-    """ Insert a new data into a table """
+    """ Insert new data into a table """
     columns = ', '.join(data_dict.keys())
     placeholders = ', '.join('?' * len(data_dict))
     sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
@@ -43,10 +40,12 @@ def query_database(query):
     conn.close()
     return df
 
-# Create a financial table
-def setup_financial_table():
+# Create multiple financial tables
+def setup_financial_tables():
     conn = create_connection()
-    sql_create_financial_table = """
+
+    # Table 1: Finances
+    sql_create_finances_table = """
     CREATE TABLE IF NOT EXISTS finances (
         id INTEGER PRIMARY KEY,
         date TEXT NOT NULL,
@@ -55,21 +54,46 @@ def setup_financial_table():
         profit REAL NOT NULL
     );
     """
-    create_table(conn, sql_create_financial_table)
+    create_table(conn, sql_create_finances_table)
 
-    # Insert 100 rows with random data
+    # Table 2: Projects
+    sql_create_projects_table = """
+    CREATE TABLE IF NOT EXISTS projects (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL
+    );
+    """
+    create_table(conn, sql_create_projects_table)
+
+    # Table 3: ProjectFinances (to link projects with financial data)
+    sql_create_project_finances_table = """
+    CREATE TABLE IF NOT EXISTS project_finances (
+        id INTEGER PRIMARY KEY,
+        project_id INTEGER NOT NULL,
+        finance_id INTEGER NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id),
+        FOREIGN KEY (finance_id) REFERENCES finances(id)
+    );
+    """
+    create_table(conn, sql_create_project_finances_table)
+
+    # Insert data into finances and projects
     start_date = date.today() - timedelta(days=99)
-    for i in range(100):
-        revenue = random.randint(5000, 20000)  # Random revenue between 5000 and 20000
-        expenses = random.randint(1000, 15000)  # Random expenses between 1000 and 15000
-        profit = revenue - expenses
-        data = {
-            "date": start_date + timedelta(days=i),
-            "revenue": revenue,
-            "expenses": expenses,
-            "profit": profit
-        }
-        insert_data(conn, "finances", data)
+    project_names = ["Project A", "Project B", "Project C", "Project D"]
+
+    for project_name in project_names:
+        project_id = insert_data(conn, "projects", {"name": project_name})
+        for i in range(25):  # Insert 25 entries per project
+            revenue = random.randint(5000, 20000)  # Random revenue between 5000 and 20000
+            expenses = random.randint(1000, 15000)  # Random expenses between 1000 and 15000
+            profit = revenue - expenses
+            finance_id = insert_data(conn, "finances", {
+                "date": start_date + timedelta(days=i),
+                "revenue": revenue,
+                "expenses": expenses,
+                "profit": profit
+            })
+            insert_data(conn, "project_finances", {"project_id": project_id, "finance_id": finance_id})
 
     conn.close()
 
@@ -102,11 +126,10 @@ def get_schema_representation():
     conn.close()
     return db_schema
 
-# This will create the table and insert 100 rows when you run sql_db.py
+# This will create the tables and insert data when you run sql_db.py
 if __name__ == "__main__":
-
-    # Setting up the financial table
-    # setup_financial_table()
+    # Setting up the financial tables
+    setup_financial_tables()
 
     # Querying the database
     # print(query_database("SELECT * FROM finances"))
